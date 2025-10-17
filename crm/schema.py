@@ -8,26 +8,46 @@ from django.db import transaction
 from django.utils import timezone
 import re
 
-# --- GraphQL Types ---
+
 class CustomerType(DjangoObjectType):
     class Meta:
         model = Customer
-        fields = ("id", "name", "email", "phone")
+        filterset_class = CustomerFilter
+        interfaces = (graphene.relay.Node,)
 
 
 class ProductType(DjangoObjectType):
     class Meta:
         model = Product
-        fields = ("id", "name", "price", "stock")
+        filterset_class = ProductFilter
+        interfaces = (graphene.relay.Node,)
 
 
 class OrderType(DjangoObjectType):
     class Meta:
         model = Order
-        fields = ("id", "customer", "products", "total_amount", "order_date")
+        filterset_class = OrderFilter
+        interfaces = (graphene.relay.Node,)
 
 
-# --- Mutations ---
+class Query(graphene.ObjectType):
+    all_customers = DjangoFilterConnectionField(CustomerType, order_by=graphene.String())
+    all_products = DjangoFilterConnectionField(ProductType, order_by=graphene.String())
+    all_orders = DjangoFilterConnectionField(OrderType, order_by=graphene.String())
+
+    def resolve_all_customers(self, info, order_by=None, **kwargs):
+        qs = Customer.objects.all()
+        return qs.order_by(order_by) if order_by else qs
+
+    def resolve_all_products(self, info, order_by=None, **kwargs):
+        qs = Product.objects.all()
+        return qs.order_by(order_by) if order_by else qs
+
+    def resolve_all_orders(self, info, order_by=None, **kwargs):
+        qs = Order.objects.all()
+        return qs.order_by(order_by) if order_by else qs
+
+
 class CreateCustomer(graphene.Mutation):
     class Arguments:
         name = graphene.String(required=True)
@@ -38,11 +58,9 @@ class CreateCustomer(graphene.Mutation):
     message = graphene.String()
 
     def mutate(self, info, name, email, phone=None):
-        # Email uniqueness check
         if Customer.objects.filter(email=email).exists():
             raise Exception("Email already exists")
 
-        # Phone validation (optional)
         if phone and not re.match(r'^(\+?\d{10,15}|\d{3}-\d{3}-\d{4})$', phone):
             raise Exception("Invalid phone format")
 
@@ -137,7 +155,6 @@ class CreateOrder(graphene.Mutation):
         return CreateOrder(order=order)
 
 
-# --- Register Mutations ---
 class Mutation(graphene.ObjectType):
     create_customer = CreateCustomer.Field()
     bulk_create_customers = BulkCreateCustomers.Field()
@@ -145,6 +162,5 @@ class Mutation(graphene.ObjectType):
     create_order = CreateOrder.Field()
 
 
-# --- Dummy Query to Keep GraphQL Functional ---
 class Query(graphene.ObjectType):
     hello = graphene.String(default_value="Hello, GraphQL!")
