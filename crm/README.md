@@ -1,7 +1,16 @@
-# CRM Celery + Celery Beat Setup
+# CRM Celery Setup Guide
 
-## Prerequisites
-- Redis server installed and running locally on port 6379.
-- All dependencies installed from `requirements.txt`:
-  ```bash
-  pip install -r requirements.txt
+This guide explains how to set up and run the Celery-based background task system that generates weekly CRM reports.
+
+---
+
+## 1. Install Redis and Dependencies
+
+Make sure Redis is installed and running locally.
+
+### On Ubuntu/Debian:
+```bash
+sudo apt update
+sudo apt install redis-server
+sudo systemctl enable redis-server
+sudo systemctl start redis-server
