@@ -1,12 +1,12 @@
+import re
 import graphene
 from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
-from .filters import CustomerFilter, ProductFilter, OrderFilter
-from .models import Customer, Product, Order
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
-import re
+from .models import Customer, Product, Order
+from .filters import CustomerFilter, ProductFilter, OrderFilter
 
 
 class CustomerType(DjangoObjectType):
@@ -31,6 +31,7 @@ class OrderType(DjangoObjectType):
 
 
 class Query(graphene.ObjectType):
+    hello = graphene.String(default_value="Hello from CRM GraphQL!")
     all_customers = DjangoFilterConnectionField(CustomerType, order_by=graphene.String())
     all_products = DjangoFilterConnectionField(ProductType, order_by=graphene.String())
     all_orders = DjangoFilterConnectionField(OrderType, order_by=graphene.String())
@@ -155,12 +156,29 @@ class CreateOrder(graphene.Mutation):
         return CreateOrder(order=order)
 
 
+class UpdateLowStockProducts(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    updated_products = graphene.List(ProductType)
+
+    def mutate(self, info):
+        low_stock_products = Product.objects.filter(stock__lt=10)
+        updated = []
+
+        for product in low_stock_products:
+            product.stock += 10
+            product.save()
+            updated.append(product)
+
+        message = f"{len(updated)} products updated." if updated else "No low-stock products found."
+        return UpdateLowStockProducts(success=True, message=message, updated_products=updated)
+
+
 class Mutation(graphene.ObjectType):
     create_customer = CreateCustomer.Field()
     bulk_create_customers = BulkCreateCustomers.Field()
     create_product = CreateProduct.Field()
     create_order = CreateOrder.Field()
+    update_low_stock_products = UpdateLowStockProducts.Field()
 
-
-class Query(graphene.ObjectType):
-    hello = graphene.String(default_value="Hello, GraphQL!")
+schema = graphene.Schema(query=Query, mutation=Mutation)
